@@ -1,4 +1,4 @@
-package com.douzone.day04.singleton;
+﻿package com.douzone.singleton;
 
 public class CatMain {
 	public static void main(String[] args) {
