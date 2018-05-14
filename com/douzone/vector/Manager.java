@@ -1,4 +1,4 @@
-package com.douzone.day09.vector;
+﻿package com.douzone.vector;
 
 import java.util.Scanner;
 import java.util.Vector;

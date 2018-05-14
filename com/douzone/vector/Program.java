@@ -1,4 +1,4 @@
-package com.douzone.day09.vector;
+﻿package com.douzone.vector;
 
 /*
  * 처음 만들어보는 관리 프로그램
