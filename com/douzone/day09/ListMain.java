@@ -1,10 +1,11 @@
-package com.douzone.day09;
+﻿package com.douzone.day09;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 /*
+ * 컬렉션 클래스들은 Object형으로 요소를 저장한다.
  * ArrayList는 배열에 추가/삭제시 데이터를 추가/삭제하고 배열을 복사해야 하므로 시간이 오래걸린다. (데이터 참조시 index 값으로 찾을 수 있으므로 속도가 빠르다.)
  * LinkedList는 배열의 추가/삭제시 노드의 링크만 연결해주면 되므로 시간이 빠르다. (데이터 참조시 링크를 모두 거쳐야 하므로 데이터 검색시 속도가 느리다.)
  * 
