@@ -490,9 +490,50 @@ db.employees.save({"_id" : ObjectId("5b0220d19442cd4bf97cfae3"
  	직업이 CLERK이거나 SALESMAN인 사람의 
  	empno, ename, job, sal을 출력 하시오.
 
+> db.employees.aggregate([
+	{$match:{$and:[{deptno:10},{sal:{$gte:500}},{sal:{$lte:3000}},
+	{$or:[{job:"CLERK"},{job:"SALESMAN"}]}]} },
+	{$project:{empno:1,ename:1,job:1,sal:1}} ])
+
+
  2. 부서번호가 30인 사람의
  	empno, ename, sal, comm을 출력하는데,
  	comm이 없으면 0으로 표시하고,
  	sal+comm을 total_sal로 표기하시오.
  	hint: {$ifNull:["comm", 0]} --> 사용하기
  		  {$add:["$sal", "$comm"]}
+
+> db.employees.aggreagte([
+	{$match: },
+	{$ifNull:["comm",0]}
+	{$project:{empno:1,ename:1,sal:1,comm:1}}
+	])
+}
+
+3. 주마다 몇개의 도시가 있는지 구하시오.
+> db.zipcode.aggregate([
+	{$group:{}}
+	{$project:{city:1,state:1}}
+	])
+
+>db.zipcode.aggregate([
+	{$group : {_id : "$state", count : {$sum : 1}}},
+	{$project : {state : 1, count : 1}}
+])
+
+4. 인구수가 10만 이상인 주를 구하시오.
+
+>db.zipcode.aggregate([
+	{$match:{pop:{$gte:100000}}},
+	{$project:{state:1,pop:1}}
+	])
+
+5. WA주는 몇개의 도시를 갖고 있는지 구하시오.
+
+>db.zipcode.aggregate([
+	{$match:{state:"WA"}},
+	{$group:{_id:"$state",count:{$sum:1}}},
+	])
+
+
+
