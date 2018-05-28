@@ -511,10 +511,6 @@ db.employees.save({"_id" : ObjectId("5b0220d19442cd4bf97cfae3"
 }
 
 3. 주마다 몇개의 도시가 있는지 구하시오.
-> db.zipcode.aggregate([
-	{$group:{}}
-	{$project:{city:1,state:1}}
-	])
 
 >db.zipcode.aggregate([
 	{$group : {_id : "$state", count : {$sum : 1}}},
@@ -534,6 +530,5 @@ db.employees.save({"_id" : ObjectId("5b0220d19442cd4bf97cfae3"
 	{$match:{state:"WA"}},
 	{$group:{_id:"$state",count:{$sum:1}}},
 	])
-
 
 

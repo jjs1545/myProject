@@ -102,4 +102,133 @@ mongos> sh.enableSharding("test")
 7. 인덱스 생성
 db.things.createIndex({empno:1})
 //샤딩 설정 전에 인덱스 생성
+//단일 인덱스만 가능
 
+8.인덱스를 통한 샤드 키 생성
+use admin //관리자 권한으로 실행
+sh.shardCollection("test.things",{emp:"hashed"})
+//샤딩 가능한 컬렉션 등록 (해쉬)
+
+db.runCommand({listshards:1})
+//샤드 확인 
+
+9. 테스트 
+ 만개의 데이터를 넣어서 확인
+ for(var n=0; n<10000; n++){db.things.save({empno:n, ename:"test", sal:1000})}
+
+ > mongo localhost:20011 (Primary) //14192개 
+ > mongo localhost:20021 (Primary) //13966개 
+ > mongo localhost:20031 (Primary) //14122개 
+
+6736 0 6710
+
+[Shard Key]
+Hashed Shard Key
+ : 유일한 값으로 키 값을 설정
+ 	중복된 값이 많다면 데이터가 몰릴 수 있다.
+ 	키를 기준으로 분배!
+
+Ranged Shard Key
+ : 데이터가 한 곳에 몰릴 수 있다.
+ (1~1000은 shard1, 1001-3000은 shard2. ...)
+
+사용자가 강제로 복구 
+
+ [master_slave]
+1. master 서버 실행 
+
+ mongod --dbpath <마스터 경로> --port 10000 --master
+ //서버를 실행시키겠다. 지정된 경로, 포트 지정, 옵션을 마스터 -> 지정된 경로에 몽고디비 서버를 만들겠다
+ 
+ >(새로운cmd) mongod --dbpath C:\Users\bit34\repl\master --port 10000 --master
+
+2. slave 서버 실행
+
+mongod --dbpath <슬레이브 경로> --port 10001 
+--slave --source localhost:10000
+// 슬레이브 서버는 마스터 서버의 종속도 표기.
+
+>(새로운cmd) mongod --dbpath C:\Users\bit34\repl\slave1 --port 10001 --slave --source localhost:10000
+>(새로운cmd) mongod --dbpath C:\Users\bit34\repl\slave2 --port 10002 --slave --source localhost:10000
+
+3. master 서버 접속 
+
+->(새로운cmd) 마스터 서버로 접속 shell 명령어창을 띄운다
+>mongo localhost:10000 (몽고 마스터의 ip로 접속)
+
+4. slave 서버 접속
+
+->(새로운cmd) 슬레이브1 서버로 접속 shell 명령어창을 띄운다
+>mongo localhost:10001
+접속 후 데이터 제어가 불가능!
+(slave 서버는 일반적으로 볼 수 없다.)
+
+rs.slaveOk() //이 명령어로 슬레이브 조작 가능
+db.user.find()로 조회는 가능하지만,
+db.user.insert()로 데이터 삽입은 불가!
+// not master 에러
+--> 마스터에 있는 데이터를 슬레이브에서 백업하는 용도로 슬레이브를 사용한다.
+
+use admin 관리자 권한
+db.shutdownServer() //서버 강제 종료
+
+cmd> del 경로\*.*
+cmd> del C:\user\bit34\repl\master\*.* --> 경로에 있는 \파일명.파일확장자 데이터 모두 삭제
+
+cmd> copy 슬레이브 경로\*.* 마스터 경로\*.* --> 슬레이브 경로에 있는 것을 모두 마스터 경로에
+cmd> copy C:\Users\bit34\repl\slave1\*.* C:\Users\bit34\repl\master\*.*
+
+사용자가 지정하는 방식. (잘 사용 안한다.)
+
+
+아비터를 이용한 복구
+ [arbit]
+ --아비터(arbiter): PRIMARY 삭제시 PRIMARY가 Slave로 변경 PRIMARY를 다시 살리면 Slave가 PRIMARY고 PRIMARY는 SECONDARY로 된다. 
+
+ 1. 서버 실행
+ Primary Server 생성
+ > mongod --dbpath disk1의 경로 --port 10001 --replSet rptmongo --oplogSize10
+ > mongod --dbpath C:\Users\bit34\replsets\disk1 --port 10001 --replSet rptmongo --oplogSize 10
+ 
+ --oplogSize 10
+ --레플리카 세트 크기 지정
+ --생략 시 1GB로 지정, 
+
+ 2. Primary Server 접속 (쉘 실행)
+ > mongo localhost:10001/admin
+ //관리자 데이터베이스 바로 접속
+
+
+ rs.initiate()
+ //리플리카 셋 초기화
+ //OTHER> 라면, 엔터 한번 더 쳐서
+ //PRIMARY> 로..
+
+ 3. Secondary Server 생성
+ mongod --dbpath disk2의 경로 --port 10002 -replSet rptmongo --oplogSize 10
+ > mongod --dbpath C:\Users\bit34\replsets\disk2 --port 10002 -replSet rptmongo --oplogSize 10
+
+ 4. Arbiter Server 생성
+ mongod --dbpath arbit의 경로 --port 10003 --replSet rptmongo --pologSize 10
+ > mongod --dbpath C:\Users\bit34\replsets\arbit --port 10003 --replSet rptmongo --oplogSize 10
+
+ 5. 슬레이브 추가
+ PRIMARY> rs.add("localhost:10002")
+ PRIMARY> rs.add("192.168.1.28:10002")
+ // localhost보단 ip 주소로 직접 해라.
+
+ 6. 아비터 추가
+ Primary Server에서
+ PRIMARY> rs.addArb("localhost:10003")
+
+ 7. 정보 확인
+ > db.printReplicationInfo()
+
+ 8. Primary 셧다운 후 10002번 접속 (Slave)
+ 		//이전 SECONDARY가 PRIMARY로 되었는지 확인!
+ 		--아비터(arbiter): PRIMARY 삭제시 PRIMARY가 Slave로 변경 PRIMARY를 다시 살리면 Slave가 PRIMARY고 PRIMARY는 SECONDARY로 된다. 
+
+
+ 9.disk3 생성후 서버 접속
+
+> mongod --dbpath C:\Users\bit34\replsets\disk3 --port 10004 -replSet rptmongo --oplogSize 10

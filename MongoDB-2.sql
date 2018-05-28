@@ -155,7 +155,7 @@ VS
 
  - Text Index
  		: Text Data 처리를 위한 indexing
- 		  Test 검색 쿼리를 지원
+ 		  Text 검색 쿼리를 지원
  		  (문자열, 문자열 요소의 배열)
  		  단, Collection에는 최대 하나의 Text Index
  		- 가중치 지정
@@ -167,6 +167,18 @@ VS
  				  문자열 데이터가 존재하는 모든 필드를
  				  indexing 해준다.
 > db.COLLECTION_NAME.createIndex({"$**":"text"})
+> db.members.createIndex(age:1, {"$**":"text"})
+
+> db.members.createIndex({"hello":"text"})
+> db.employees.createIndex(
+	{ename:"text",job:"text"},{weight:{ename:10,job:5},name:"myTextIdx"}
+)
+> db.employees.find({"$text":{"$search":"SMITH"}})
+		//$text: 문자열 데이터에 관한 연산자
+		//$search: 뒤에 나오는 데이터를 검색
+		//Text Indexing 필용!
+> db.employees.find({"$text": {"$search":"ADAMS SMITH"}})
+> 
 
 - Hash Index
 	   : B-Tree가 아닌 Hash DataStruct 사용 (정렬 X)
@@ -227,3 +239,140 @@ VS
 	  > db.employees.find({comm:{$gte:2000}})
 	  //comm이 2000이상인 직원을 찾을 때,
 	  //comm 존재하지 않으면 검색 대상에서 제외 (검색 X)
+
+
+[Map-Reduce]
+
+ - 프로그래밍적인 요소 (JavaScript, library, ...)
+   웬만하면 aggregate 사용
+
+ Map: 데이터 분류 (K, V). emit: 배열 발생
+ Reduce: Map에서의 배열을 활용해 데이터 집계
+
+db.order.insert({
+		cust_id: "A2018052401",
+		order_date: new Date(),
+		status: "A",
+		price: 2250,
+		item: [
+			{item_name: "Bunny Boots", qty:5, price:2.5},
+			{item_name: "Sky Pole", qty:5, price:2.5}
+		]
+	})
+
+db.order.insert({
+		cust_id: "A2018052402",
+		order_date: new Date(),
+		status: "A",
+		price: 3150,
+		item: [
+			{item_name: "Bunny Boots", qty:15, price:2.5},
+			{item_name: "Sky Pole", qty:5, price:2.5}
+		]
+	})
+
+db.order.insert({
+		cust_id: "A2018052401",
+		order_date: new Date(),
+		status: "A",
+		price: 1500,
+		item: [
+			{item_name: "Bunny Boots", qty:5, price:2.5},
+			{item_name: "Sky Pole", qty:5, price:2.5}
+		]
+	})
+
+db.order.insert({
+		cust_id: "A2018052402",
+		order_date: new Date(),
+		status: "A",
+		price: 2300,
+		item: [
+			{item_name: "Bunny Boots", qty:15, price:2.5},
+			{item_name: "Sky Pole", qty:5, price:2.5}
+		]
+	})
+
+db.order.save({
+		cust_id: "A2018052402",
+		order_date: new Date(),
+		status: "A",
+		price: 2300,
+		item: [
+			{item_name: "Bunny Boots", qty:15, price:2.5},
+			{item_name: "Sky Pole", qty:5, price:2.5}
+		]
+	})
+[Map]
+Q1. 주문 번호별 총 가격
+
+-Map 함수 만들기
+> map_function = function() {
+  emit(this.cust_id, this.price)
+  } //K : 주문번호, V: 가격
+
+
+-Reduce 함수 만들기 
+> reduce_function = function(keyCustId, valuePrices) {
+ 	return Array.sum(valuePrices)
+ }
+
+> db.order.mapReduce(map_function,reduce_function,{out:"order_cust_total"})
+> db.order_cust_total.find()
+
+Q2. 제품별 주문수량 평균 집계
+map_function = function(){
+	for(var idx = 0; idx < this.item.length; idx++){
+		var key = this.item[idx].item_name;
+		var value = {count : 1, qty : this.item[idx].qty};
+		emit(key, value);
+	}
+} // item[]안에 있는 item_name을 씀
+
+reduce_function = function(keyItems, valueCountObj){
+	reduceValue = {count : 0, qty : 0}
+	for(var idx = 0; idx < valueCountObj.length; idx++){
+		reduceValue.qty += valueCountObj[idx].qty;
+		//제품 수량 집계
+		reduceValue.count += valueCountObj[idx].count;
+		//제품 구매 수 집계
+	}
+	return reduceValue;
+}
+
+//집계 처리 후에 추가로 데이터를 가공할 경우
+//finalize function을 사용
+//ex) 집계 후 평균을 구하기 위함.
+finalize_function = function(key, reduceValue) {
+	reduceValue.average = reducedValue.qty/reducedValue.count;
+	return reducedValue;
+}
+
+db.order.mapReduce(map_function, 	//데이터 분류
+	reduce_function,				//데이터 집계 
+	{out:{merge:"map_reduce_ex"},
+	finalize:finalize_function})	//집계 후 가공
+
+db.map_reduce_ex.find()
+
+
+/*Q2. 제품별 주문수량 평균 집계
+
+ map_function=function(){
+ for(var idx=0;idx<this.item.length;idx++){
+ 	var key = this.item[].item_name;		
+ 	var value = {count:1,qty:this.item[idx].qty};
+ 	emit(key, value);
+ 	}
+ }
+
+ reduce_function=function(keyitems,valueCountObj) {
+ 		reduceValue={count:0,qty:0}
+ 		for(var idx=0; idx<valueCountObj.length;idx++){
+ 			reduceValue.qty += valueCountObj[idx].qty;
+ 			//제품 수량 집계
+ 			reduceValue.count += valueCountObj[idx].count;
+ 			//제품 구매 수 집계
+ 		}
+ 		return reduceValue;
+ }*/

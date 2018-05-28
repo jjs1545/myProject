@@ -714,8 +714,3 @@ CREATE TABLE t_board (
 	PRIMARY KEY(no)
 	);
 
-
-=========몽고 DB==========
-
-mongod : 서버실행 
-mongo  : 몽고 쉘 실행 
